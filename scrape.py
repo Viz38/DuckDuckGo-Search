@@ -96,7 +96,12 @@ async def process_sheet(sheet_name, input_file, output_file):
     if target_column not in df.columns:
         df[target_column] = None
 
-    while True: # Outer loop to ensure all errors are rectified
+    pass_count = 0
+    max_passes = 2
+    while pass_count < max_passes: # Outer loop to ensure all errors are rectified
+        pass_count += 1
+        if pass_count > 1:
+            print(f"   🔄 Retrying sheet {sheet_name} (Pass {pass_count}/{max_passes})...")
         rows = []
         for idx, row in df.iterrows():
             url_col = 'LinkedIn URL' if 'LinkedIn URL' in df.columns else df.columns[0]
