@@ -8,6 +8,7 @@ Vishnu Bhagirathan
 ## Features
 
 - **Asynchronous Processing:** Utilizes `asyncio` for concurrent searches, optimized for speed and stability.
+- **User-Friendly Interface:** A welcome screen and prompts for file name and retry counts.
 - **Smart Retries:** Includes built-in retry logic with increasing delays to handle rate limits and temporary blocks.
 - **Multiple Search Strategies:** Employs primary and fallback search queries to maximize result accuracy.
 - **Data Persistence:** Automatically saves progress to Excel every 3 processed entries to prevent data loss.
@@ -17,7 +18,7 @@ Vishnu Bhagirathan
 ## Prerequisites
 
 - Python 3.7+
-- An input Excel file named `Live.xlsx` with a column named `LinkedIn URL` (or the first column should contain the URLs).
+- An input Excel file with a column named `LinkedIn URL` (or the first column should contain the URLs).
 
 ## Installation
 
@@ -30,13 +31,18 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. Place your input Excel file in the project directory and name it `Live.xlsx`.
-2. Ensure the Excel file has a column named `LinkedIn URL` containing the profile links you wish to search.
-3. Run the script:
+1. Place your input Excel file in the project directory.
+2. Run the script:
 
 ```bash
 python scrape.py
 ```
+3. The script will prompt you for the following information:
+   - File name with extension (e.g., `Live.xlsx`).
+   - Number of retries per link.
+   - Number of retries per sheet.
+
+4. The script will then process the file and generate output files.
 
 ## Output
 

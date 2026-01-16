@@ -13,6 +13,50 @@ from ddgs import DDGS
 current_dir = Path(__file__).resolve().parent
 sys.path.append(str(current_dir.parent))
 
+def print_welcome_screen():
+    """Prints a welcome screen with instructions."""
+    print("="*70)
+    print(" LinkedIn Profile Scraper - Welcome!".center(70))
+    print("="*70)
+    print("\nThis script automates the process of scraping LinkedIn profile details\nfrom an Excel file using DuckDuckGo Search. It's designed to be robust\nwith retry mechanisms and progress saving.\n")
+    print("Please ensure your Excel file is in the same directory as this script.")
+    print("It should contain a column named 'LinkedIn URL' (or the first column)\nwith the profile links you wish to process.\n")
+    print("You will be prompted for the input file name and retry settings.\n")
+    print("="*70)
+
+def get_user_input():
+    """Gets user input for file name, and retry counts with clear instructions."""
+    print("\n--- Input Configuration ---")
+    while True:
+        file_name = input("1. Enter the Excel file name (e.g., 'Live.xlsx'): ").strip()
+        if file_name:
+            break
+        else:
+            print("File name cannot be empty. Please try again.")
+
+    while True:
+        try:
+            retries_per_link = int(input("2. Enter number of retries per link (e.g., 3): "))
+            if retries_per_link >= 0:
+                break
+            else:
+                print("Number of retries must be a non-negative integer. Please try again.")
+        except ValueError:
+            print("Invalid input. Please enter a whole number.")
+
+    while True:
+        try:
+            retries_per_sheet = int(input("3. Enter number of retries per sheet (e.g., 2): "))
+            if retries_per_sheet >= 0:
+                break
+            else:
+                print("Number of retries must be a non-negative integer. Please try again.")
+        except ValueError:
+            print("Invalid input. Please enter a whole number.")
+            
+    print("---------------------------\n")
+    return file_name, retries_per_link, retries_per_sheet
+
 def extract_linkedin_id(url):
     # Decode URL (e.g. %C3%BC -> ü)
     url = urllib.parse.unquote(str(url))
@@ -31,7 +75,7 @@ def extract_linkedin_id(url):
         return parts[-1]
     return ""
 
-def sync_search(idx, url):
+def sync_search(idx, url, max_retries):
     """
     Synchronous search function to be run in threads.
     Includes retry logic and delays.
@@ -45,7 +89,6 @@ def sync_search(idx, url):
     query1 = f'site:linkedin.com/in/{slug}'
     query2 = f'{slug} LinkedIn'
     
-    max_retries = 3
     for attempt in range(max_retries):
         try:
             # Use 'lite' backend to avoid API rate limits/blocks
@@ -85,7 +128,7 @@ def sync_search(idx, url):
 
     return {'idx': idx, 'status': 'Failed', 'error': 'Unknown failure'}
 
-async def process_sheet(sheet_name, input_file, output_file):
+async def process_sheet(sheet_name, input_file, output_file, retries_per_link, retries_per_sheet):
     print(f"\n📂 Reading {input_file} (Sheet: {sheet_name})...")
     try:
         df = pd.read_excel(input_file, sheet_name=sheet_name, engine='openpyxl')
@@ -97,11 +140,10 @@ async def process_sheet(sheet_name, input_file, output_file):
         df[target_column] = None
 
     pass_count = 0
-    max_passes = 2
-    while pass_count < max_passes: # Outer loop to ensure all errors are rectified
+    while pass_count < retries_per_sheet: # Outer loop to ensure all errors are rectified
         pass_count += 1
         if pass_count > 1:
-            print(f"   🔄 Retrying sheet {sheet_name} (Pass {pass_count}/{max_passes})...")
+            print(f"   🔄 Retrying sheet {sheet_name} (Pass {pass_count}/{retries_per_sheet})...")
         rows = []
         for idx, row in df.iterrows():
             url_col = 'LinkedIn URL' if 'LinkedIn URL' in df.columns else df.columns[0]
@@ -127,7 +169,7 @@ async def process_sheet(sheet_name, input_file, output_file):
             chunk = rows[i:i + chunk_size]
             loop = asyncio.get_running_loop()
             
-            tasks = [loop.run_in_executor(None, sync_search, idx, url) for idx, url in chunk]
+            tasks = [loop.run_in_executor(None, sync_search, idx, url, retries_per_link) for idx, url in chunk]
             results = await asyncio.gather(*tasks)
             
             for res in results:
@@ -194,7 +236,10 @@ async def finalize_logs(total_processed, total_success, total_errors, start_time
         print(f"⚠️ Failed to update markdown files: {e}")
 
 async def main():
-    input_file = current_dir / "Live.xlsx"
+    print_welcome_screen()
+    file_name, retries_per_link, retries_per_sheet = get_user_input()
+
+    input_file = current_dir / file_name
     if not input_file.exists():
         print(f"❌ Input file {input_file} not found.")
         return
@@ -213,7 +258,7 @@ async def main():
         output_file = current_dir / output_filename
         file_to_work_on = output_file if output_file.exists() else input_file
         
-        await process_sheet(sheet, file_to_work_on, output_file)
+        await process_sheet(sheet, file_to_work_on, output_file, retries_per_link, retries_per_sheet)
         
         # Gather stats for logging
         final_df = pd.read_excel(output_file)
