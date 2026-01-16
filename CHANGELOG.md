@@ -1,5 +1,15 @@
 # CHANGELOG
 All notable changes to this project are documented here.
+## [2026-01-16] Added terminal clear on program start
+- [modify]: `scrape.py`
+- Reason: To clear the terminal as soon as the program runs, ensuring a clean display for the UI.
+- Related tasks/tests: None
+
+## [2026-01-16] Added .gitignore
+- [create]: `.gitignore`
+- Reason: To ignore .xlsx and .csv files from version control.
+- Related tasks/tests: None
+
 ## [2026-01-16] Enhanced UI instructions
 - [modify]: `scrape.py`
 - Reason: Provided more detailed instructions in the welcome screen and input prompts for better user guidance.

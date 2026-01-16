@@ -236,6 +236,7 @@ async def finalize_logs(total_processed, total_success, total_errors, start_time
         print(f"⚠️ Failed to update markdown files: {e}")
 
 async def main():
+    os.system('cls' if os.name == 'nt' else 'clear')
     print_welcome_screen()
     file_name, retries_per_link, retries_per_sheet = get_user_input()
 
