@@ -154,9 +154,16 @@ async def process_sheet(sheet_name, input_file, output_file, retries_per_link, r
     except Exception:
         df = pd.read_excel(input_file, sheet_name=0, engine='openpyxl')
 
+    # Remove unnamed columns
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+
     if 'LinkedIn URL' not in df.columns:
-        print(f"   ❌ Error: Column 'LinkedIn URL' not found in sheet '{sheet_name}'. Skipping.")
-        return
+        if df.shape[1] > 0:
+            print("   ⚠️ Warning: 'LinkedIn URL' column not found. Using first column as URL source.")
+            df.rename(columns={df.columns[0]: 'LinkedIn URL'}, inplace=True)
+        else:
+            print(f"   ❌ Error: No columns found in sheet '{sheet_name}'. Skipping.")
+            return False
 
     target_column = 'Search Result Detail'
     if target_column not in df.columns:
@@ -233,6 +240,7 @@ async def process_sheet(sheet_name, input_file, output_file, retries_per_link, r
 
     elapsed = time.time() - start_time
     print(f"✅ Sheet {sheet_name} Complete. {total} processed in {elapsed:.2f}s")
+    return True
 
 async def finalize_logs(total_processed, total_success, total_errors, start_time):
     end_time = time.time()
@@ -285,14 +293,15 @@ async def main():
         output_file = current_dir / output_filename
         file_to_work_on = output_file if output_file.exists() else input_file
         
-        await process_sheet(sheet, file_to_work_on, output_file, retries_per_link, retries_per_sheet)
+        processed_successfully = await process_sheet(sheet, file_to_work_on, output_file, retries_per_link, retries_per_sheet)
         
-        # Gather stats for logging
-        final_df = pd.read_excel(output_file)
-        target_col = 'Search Result Detail'
-        overall_processed += len(final_df)
-        overall_errors += final_df[target_col].str.contains("Error", na=True).sum()
-        overall_success += (len(final_df) - final_df[target_col].str.contains("Error", na=True).sum())
+        # Gather stats for logging only if processing was successful
+        if processed_successfully:
+            final_df = pd.read_excel(output_file)
+            target_col = 'Search Result Detail'
+            overall_processed += len(final_df)
+            overall_errors += final_df[target_col].str.contains("Error", na=True).sum()
+            overall_success += (len(final_df) - final_df[target_col].str.contains("Error", na=True).sum())
         
         await asyncio.sleep(2)
 
