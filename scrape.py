@@ -66,14 +66,21 @@ def extract_linkedin_id(url):
     url = url.split('?')[0]
     
     match = re.search(r'linkedin\.com/in/([^/]+)', url)
-    if match: 
-        return match.group(1).strip()
+    if match:
+        slug = match.group(1).strip()
+        name_parts = slug.split('-')
+        # Assuming the name is the first part of the slug
+        name = " ".join(name_parts[:-1]) if len(name_parts) > 1 else name_parts[0]
+        return slug, name
     
     # Fallback: take last non-empty segment
     parts = [p for p in url.split('/') if p.strip()]
     if parts:
-        return parts[-1]
-    return ""
+        slug = parts[-1]
+        name_parts = slug.split('-')
+        name = " ".join(name_parts[:-1]) if len(name_parts) > 1 else name_parts[0]
+        return slug, name
+    return "", ""
 
 def sync_search(idx, url, max_retries):
     """
@@ -83,11 +90,11 @@ def sync_search(idx, url, max_retries):
     # SIGNIFICANTLY INCREASED delay to 5-8s to clear soft-block/rate-limits
     time.sleep(random.uniform(5.0, 8.0))
     
-    slug = extract_linkedin_id(url)
+    slug, name = extract_linkedin_id(url)
 
     # Reverted to standard reliable query order
-    query1 = f'site:linkedin.com/in/{slug}'
-    query2 = f'{slug} LinkedIn'
+    query1 = f'{name} site:linkedin.com/in/{slug}'
+    query2 = f'{name} LinkedIn'
     
     for attempt in range(max_retries):
         try:
