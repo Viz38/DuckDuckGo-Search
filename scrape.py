@@ -57,6 +57,16 @@ def get_user_input():
     print("---------------------------\n")
     return file_name, retries_per_link, retries_per_sheet
 
+def is_valid_linkedin_url(url):
+    """
+    Validates the format of a LinkedIn URL.
+    """
+    if not isinstance(url, str):
+        return False
+    # Simple regex to check for a valid LinkedIn URL format
+    pattern = re.compile(r'^(https?://)?(www\.)?linkedin\.com/in/[\w-]+/?$')
+    return pattern.match(url) is not None
+
 def extract_linkedin_id(url):
     # Decode URL (e.g. %C3%BC -> ü)
     url = urllib.parse.unquote(str(url))
@@ -105,11 +115,12 @@ def sync_search(idx, url, max_retries):
                     results = ddgs.text(query1, max_results=1)
                     if results:
                         res = results[0]
-                        return {
-                            'idx': idx,
-                            'status': 'Primary Success',
-                            'result': f"{res.get('title','')}\n{res.get('href','')}\n{res.get('body','')}"
-                        }
+                        if 'linkedin.com' in res.get('href', ''):
+                            return {
+                                'idx': idx,
+                                'status': 'Primary Success',
+                                'result': f"{res.get('title','')}\n{res.get('href','')}\n{res.get('body','')}"
+                            }
                 except:
                     pass 
                 
@@ -118,15 +129,16 @@ def sync_search(idx, url, max_retries):
                     results = ddgs.text(query2, max_results=1)
                     if results:
                         res = results[0]
-                        return {
-                            'idx': idx,
-                            'status': 'Fallback Success',
-                            'result': f"{res.get('title','')}\n{res.get('href','')}\n{res.get('body','')}"
-                        }
+                        if 'linkedin.com' in res.get('href', ''):
+                            return {
+                                'idx': idx,
+                                'status': 'Fallback Success',
+                                'result': f"{res.get('title','')}\n{res.get('href','')}\n{res.get('body','')}"
+                            }
                 except:
                     pass
                 
-                return {'idx': idx, 'status': 'No Results', 'result': "Error: No results found."}
+                return {'idx': idx, 'status': 'No Results', 'result': "Error: No relevant results found."}
                     
         except Exception as e:
             if attempt == max_retries - 1:
@@ -142,6 +154,10 @@ async def process_sheet(sheet_name, input_file, output_file, retries_per_link, r
     except Exception:
         df = pd.read_excel(input_file, sheet_name=0, engine='openpyxl')
 
+    if 'LinkedIn URL' not in df.columns:
+        print(f"   ❌ Error: Column 'LinkedIn URL' not found in sheet '{sheet_name}'. Skipping.")
+        return
+
     target_column = 'Search Result Detail'
     if target_column not in df.columns:
         df[target_column] = None
@@ -153,8 +169,11 @@ async def process_sheet(sheet_name, input_file, output_file, retries_per_link, r
             print(f"   🔄 Retrying sheet {sheet_name} (Pass {pass_count}/{retries_per_sheet})...")
         rows = []
         for idx, row in df.iterrows():
-            url_col = 'LinkedIn URL' if 'LinkedIn URL' in df.columns else df.columns[0]
-            url = row[url_col]
+            url = row['LinkedIn URL']
+            if not is_valid_linkedin_url(url):
+                print(f"   ⚠️ Warning: Invalid LinkedIn URL format in sheet '{sheet_name}', row {idx+2}: '{url}'. Skipping.")
+                continue
+            
             if pd.isna(url) or str(url).strip() == "": continue
             
             val = row[target_column]
